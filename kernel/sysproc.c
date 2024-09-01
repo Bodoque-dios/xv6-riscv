@@ -91,3 +91,23 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_getppid(void)
+{
+  return myproc()->parent->pid;
+}
+
+uint64
+sys_getancestorpid(void)
+{
+  int n;
+  argint(0, &n);
+  struct proc *p = myproc();
+  while(n > 0 && p->parent != 0)
+  {
+    p = p->parent;
+    n--;
+  }
+  return p->pid;
+}

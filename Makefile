@@ -142,6 +142,8 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_clear\
+	$U/_yosoytupapi\
+	$U/_yosoytuabuelo\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
