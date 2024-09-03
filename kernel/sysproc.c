@@ -104,10 +104,14 @@ sys_getancestorpid(void)
   int n;
   argint(0, &n);
   struct proc *p = myproc();
-  while(n > 0 && p->parent != 0)
+  for(int i = 0; i < n; i++)
   {
-    p = p->parent;
-    n--;
+    if(p->parent == 0)
+    {
+      return -1;
+    } else {
+      p = p->parent;
+    }
   }
   return p->pid;
 }
