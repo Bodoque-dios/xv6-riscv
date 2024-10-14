@@ -1,79 +1,47 @@
-# Tarea 2: Programación de Procesos en xv6
+# Entrega del Proyecto de Modificación de xv6
 
-## Objetivo
-Modificar el programador de procesos en xv6 para implementar un sistema de prioridades.
+## Funcionamiento y Lógica del Sistema de Prioridades
 
-### Modificaciones Requeridas
-1. **Incorporar Prioridad**
-   - Agregar un campo de prioridad.
-   - Inicializar prioridad en 0.
+Originalmente el Scheduler de xv6 corría el primer programa que encontraba en la tabla de procesos, lo que podía ser ineficiente o poco justo, con esta modificación se le añadió un sistema de prioridades que permite que los procesos que llegaron primero sean los primeros en correr y no dependan de su ubicación en la tabla, haciendo la ejecución más justa.
 
-2. **Incorporar Boost**
-   - Agregar un campo de boost.
-   - Inicializar en 1.
+1. **Creación de un nuevo proceso**: 
+	Cada nuevo proceso se crea con una prioridad de 0 y un boost de 1. 
+2. **Ajuste de prioridad**:
+	Luego de crearlo, al resto de los procesos se les ajusta la prioridad sumándole el boost. si su prioridad es mayor a 9, se le asigna un boost de -1 y si es de 0 o menos se le vuelve a asignar un boost de 1
+3. **Ejecución**:
+	Al momento de ejecutar un proceso, el scheduler busca el proceso con menor prioridad entre todos y lo ejecuta.
 
-### Consejos
-- Revisar el código existente en xv6.
-- Documentar las modificaciones.
-
-## Detalle Entrega
-   - Al código fuente de xv6, agregar un campo de prioridad a la estructura de proceso.
-   - Inicializar la prioridad de cada proceso en 0 (menor número = mayor prioridad).
-   - Agregar un campo de boost a la estructura de proceso.
-   - Inicializar el boost en 1.
-   - Cada vez que un proceso ingresa, aumentar la prioridad de todos los procesos existentes que puedan ser ejecutados (no zombies).
-   - Implementar la lógica: `Prioridad += Boost`.
-   - Si la prioridad alcanza 9, cambiar el boost a -1.
-   - Si la prioridad llega a 0, cambiar el boost a 1.
-   - Crear programa de prueba.
-
-## Pruebas
-### Crear un programa que:
-- Utilice `fork` para crear al menos 20 procesos.
-- Cada proceso muestre un mensaje en pantalla al ejecutarse, con el formato: “Ejecutando proceso `<nombre>` `<pid>`”.
-- Incluya un `sleep` para hacer que los procesos se detengan unos segundos.
-
-## Consejos (Hints)
-- Revisar el código del programador de procesos existente para entender cómo se gestionan los procesos.
-- Asegurarse de que los cambios no afecten negativamente el funcionamiento general del sistema.
-- Documentar adecuadamente las modificaciones realizadas.
-
-## Entrega
-- Código fuente modificado de xv6.
-- Programa de prueba.
-- Informe (archivo "README.md") detallando:
-  - Funcionamiento y lógica del sistema de prioridades.
-  - Explicación de las modificaciones realizadas.
-  - Dificultades encontradas y soluciones implementadas.
-
-## Instrucciones de Entrega
-1. Crear una nueva rama en tu fork de xv6 para esta tarea.
-2. Realizar cambios y commits en esta rama.
-3. Subir la rama a tu fork en GitHub.
-4. Proporcionar en el buzón de WebC:
-   - El enlace a tu rama en GitHub (https://github.com/tu_usuario/xv6-riscv/tree/nombre_apellido_t2)
-   - Tu informe debe ser el archivo README
-
-## Recursos
-- [Documentación de xv6](https://pdos.csail.mit.edu/6.828/2020/xv6.html)
-- [Libro de xv6 (PDF)](https://pdos.csail.mit.edu/6.828/2020/xv6/book-riscv-rev1.pdf)
-- [Repositorio de xv6 en GitHub](https://github.com/otrab/xv6-riscv)
-
-## Fecha de Entrega
-14/10/2024 23:59
-
-## Evaluación (Rúbrica)
-
-### Implementación (60 puntos)
-- Correcta implementación de la estructura de prioridad y boost: 40 puntos
-- Programa de prueba y su integración: 20 puntos
+## Explicación de las Modificaciones Realizadas
 
 
-### Calidad general (considerado en la puntuación de las implementaciones)
-- Claridad del código y comentarios
-- Calidad de la documentación en README
+1. **Estructura del Proceso**:
+   - Se añadieron dos nuevos campos a la estructura del proceso: `priority` y `boost`.
+   - `priority`: Almacena la prioridad del proceso.
+   - `boost`: Determina la dirección del cambio en la prioridad.
 
+2. **Función `allocproc()`**:
+   - Al crear un nuevo proceso, se inicializan `priority` y `boost`.
+   - Se ajustan las prioridades de los demás procesos en el sistema, excluyendo el proceso recién creado.
 
-**Total: 70 puntos (máximo)**
+3. **Función `scheduler()`**:
+   - Se modificó el algoritmo de planificación para priorizar los procesos según su valor de `priority` buscando el con mejor prioridad y ejecutándolo antes del resto.
 
-¡Buena suerte con tu tarea!
+4. **Programa de Prueba**:
+   - Se creó un programa que genera múltiples procesos hijos y verifica que las prioridades se ajusten correctamente durante la ejecución.
+   - ![[Pasted image 20241014192309.png]]
+
+## Dificultades Encontradas y Soluciones Implementadas
+
+1. **Condiciones de Carrera**:
+   - Al modificar las prioridades de los procesos, cambiaban erraticamente. 
+   - **Solución**: Se usaron locks al acceder a la estructura de procesos, asegurando que solo un CPU pueda modificar los valores de prioridad a la vez.
+
+2. **Prioridades**:
+   - Era difícil saber si estaba funcionado asignando correctamente las prioridades
+   - **Solución**: Se agregaron `printf()` a la asignacion para ver que se estuvieran actualizando correctamente.
+   - ![[Pasted image 20241014192113.png]]
+
+3. **Orden de ejecución**:
+   - No sabia si se estaba ejecutando en el orden correcto
+   - **Solución**: Se agregaron `printf()` al scheduler  para ver que se estuvieran eligiendo los procesos correctamente.
+   - ![[Pasted image 20241014191859.png]]
