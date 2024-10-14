@@ -153,7 +153,7 @@ found:
   for (struct proc *p2 = proc; p2 < &proc[NPROC]; p2++) {
     if (p2 != p) {  // Skip the newly created process
         acquire(&p2->lock); 
-        if (p2->state == RUNNABLE) {  /
+        if (p2->state == RUNNABLE) { 
             p2->priority += p2->boost;  
             //printf("CPU(%d) Updated %d to %d\n", cpuid(), p2->pid, p2->priority);
             if (p2->priority >= 9) {
