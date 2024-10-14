@@ -28,7 +28,7 @@ Originalmente el Scheduler de xv6 corría el primer programa que encontraba en l
 
 4. **Programa de Prueba**:
    - Se creó un programa que genera múltiples procesos hijos y verifica que las prioridades se ajusten correctamente durante la ejecución.
-   - ![[Pasted image 20241014192309.png]]
+   - ![](Pasted image 20241014192309.png)
 
 ## Dificultades Encontradas y Soluciones Implementadas
 
@@ -39,9 +39,9 @@ Originalmente el Scheduler de xv6 corría el primer programa que encontraba en l
 2. **Prioridades**:
    - Era difícil saber si estaba funcionado asignando correctamente las prioridades
    - **Solución**: Se agregaron `printf()` a la asignacion para ver que se estuvieran actualizando correctamente.
-   - ![[Pasted image 20241014192113.png]]
+   - ![](Pasted image 20241014192113.png)
 
 3. **Orden de ejecución**:
    - No sabia si se estaba ejecutando en el orden correcto
    - **Solución**: Se agregaron `printf()` al scheduler  para ver que se estuvieran eligiendo los procesos correctamente.
-   - ![[Pasted image 20241014191859.png]]
+   - ![](Pasted image 20241014191859.png)
