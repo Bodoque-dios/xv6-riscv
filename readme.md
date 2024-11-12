@@ -1,76 +1,84 @@
-# Tarea 3: Protección de Memoria en xv6
+# Informe: Protección de Memoria en xv6
 
-## Objetivo
-Modificar xv6 para implementar un sistema de protección de memoria que permita marcar regiones de memoria como solo lectura.
+## Funcionamiento y Lógica de la Protección de Memoria
 
-### Modificaciones Requeridas
-1. **Incorporar Funciones de Protección**
-   - Implementar las funciones `mprotect` y `munprotect`.
+El sistema de protección de memoria en xv6 permite a un proceso establecer ciertas páginas de memoria como de solo lectura, de manera que la escritura en esas páginas esté restringida. Esto se implementa modificando las entradas de tabla de páginas (PTE) correspondientes, específicamente el bit de escritura (PTE_W) de cada página.
 
-2. **Modificación de la Tabla de Páginas**
-   - Actualizar la tabla de páginas para incluir un bit que indique si una página es de solo lectura.
+En xv6, que utiliza el estándar de direcciones virtuales Sv39, los bits más bajos de cada PTE incluyen las flags, con el último bit representando si la entrada es válida (PTE_V) y el penúltimo si la página permite escritura. Con esta estructura en mente, `mprotect` y `munprotect` recorren las páginas, validan que las direcciones y longitudes sean válidas y utilizan la función `walk` para obtener el puntero a cada PTE y modificar su bit de escritura.
 
-### Funciones a Implementar
-- **mprotect(void *addr, int len)**
-  - Permite marcar una región de memoria, comenzando en `addr` con longitud `len`, como solo lectura.
-  - Calcular cuántas páginas están involucradas y modificar el bit W de cada PTE para deshabilitar la escritura.
+## Explicación de las Modificaciones Realizadas
 
-- **munprotect(void *addr, int len)**
-  - Permite revertir la protección de solo lectura de una región de memoria, volviéndola de nuevo de lectura/escritura.
-  - Similar a `mprotect`, pero restaura el permiso de escritura para las páginas afectadas.
+Se añadieron dos nuevas llamadas de sistema: `mprotect` y `munprotect`. Ambas permiten cambiar los permisos de escritura de páginas específicas:
 
-### Manejo de Errores
-- Las funciones deben manejar errores, como:
-  - Direcciones inválidas para `addr` o `len`.
-  - Direcciones que no pertenecen al proceso.
-  - Otros errores deducibles.
+- **`mprotect`**: Marca las páginas como de solo lectura al poner en 0 el bit de escritura (PTE_W).
+- **`munprotect`**: Restaura el permiso de escritura para esas páginas al poner el bit de escritura en 1.
 
-## Consejos (Hints)
+### Funcionamiento de `mprotect`
 
-   -  Revisar el código existente en xv6 para entender cómo se gestionan las tablas de páginas.
-   - Documentar adecuadamente las modificaciones realizadas.
-
-## Entrega
-
-   -  Código fuente modificado de xv6.
-    - Programa de prueba.
-   -  Informe (archivo "README.md") detallando:
-    -    Funcionamiento y lógica de la protección de memoria.
-    -    Explicación de las modificaciones realizadas.
-- Dificultades encontradas y soluciones implementadas.
-
-## Instrucciones de Entrega
-
-   - Crear una nueva rama en tu fork de xv6 para esta tarea.
-    - Realizar cambios y commits en esta rama.
-  -   Subir la rama a tu fork en GitHub.
-  -  Proporcionar en el buzón de WebC:
-  -  El enlace a tu rama en GitHub (https://github.com/tu_usuario/xv6-riscv/tree/nombre_apellido_t3)
-  -  Tu informe debe ser el archivo README.
-
-## Evaluación
-
-- (2 puntos) Implementación de mprotect: dados un base addr y una longitud len, calcular cuántas páginas están involucradas, y recorrerlas en la tabla de páginas y modificar el bit W de cada PTE para deshabilitar la escritura.
-- (2 puntos) Implementación de munprotect: Similar a mprotect, pero esta llamada debe restaurar el permiso de escritura para las páginas afectadas.
-- (2 puntos) Manejo de errores: Por ejemplo, si addr o len son inválidos, las llamadas deben fallar y devolver un error. O si apuntan a direcciones que no son del proceso, o ¡cualquier otro error que deduzcan!
-
-## Ejemplo de Prueba
+La función `mprotect` toma dos argumentos: `addr` (la dirección inicial de la región de memoria a proteger) y `len` (el número de páginas a proteger). 
 ```c
-#include "types.h"
-#include "stat.h"
-#include "user.h"
+int mprotect(void *addr, int len)
+{
+    if (!addr || len <= 0)
+        return -1;
+```
 
-int main() {
-    char *addr = sbrk(0);  // Obtener la dirección actual del heap
-    sbrk(4096);  // Reservar una página
-    // Intentar proteger la nueva página
-    if (mprotect(addr, 1) == -1) {
-        printf("mprotect falló\n");
+1. **Verificación de Parámetros**: Primero, se verifica que `addr` no sea `NULL` y que `len` sea un valor positivo. Si alguno de estos parámetros es inválido, la función retorna `-1`, indicando un error.
+
+```c
+    struct proc *p = myproc();
+```
+
+2. **Obtener el Proceso Actual**: La función utiliza `myproc()` para acceder al proceso actual,  para acceder a la tabla de páginas.
+
+```c
+    uint64 total_len = len * PGSIZE;
+
+    if ((uint64)addr >= MAXVA || (uint64)addr + total_len > MAXVA)
+        return -1;
+```
+
+3. **Verificación de Límites de Dirección**: `total_len` representa el tamaño total de la región de memoria a proteger en bytes. La función verifica que `addr` y `addr + total_len` estén dentro del espacio de usuario permitido. 
+```c
+    for (int i = 0; i < len; i++)
+    {
+        uint64 va = (uint64)addr + i * PGSIZE;
+```
+
+4. **Recorrido de Páginas**: La función recorre las `len` páginas especificadas, calculando la dirección virtual de cada página a proteger.
+
+```c
+        pte_t *pte = walk(p->pagetable, va, 0);
+        if (pte == 0) return -1;
+```
+
+5. **Obtener el PTE de cada página**: `walk` busca la PTE correspondiente. Si el resultado es -1 no la encontró
+
+```c
+        if ((*pte & PTE_V) == 0) return -1;
+```
+
+6. **Validación de Página**: La función verifica que la página esté mapeada en la memoria.
+
+```c
+        *pte &= ~PTE_W;
     }
-    // Intentar escribir en la página protegida
-    char *ptr = addr;
-    *ptr = 'A';  // Esto debería fallar si la protección es exitosa
-    printf("Valor en la dirección: %c\n", *ptr);  // Verificar el valor
     return 0;
 }
+```
 
+7. **Modificación del bit de Escritura**: Con `*pte &= ~PTE_W`  se deja bit de escritura en la PTE en 0, estableciendo la página como de solo lectura, haciendo un AND NOT . Finalmente, la función retorna `0` si todas las páginas fueron protegidas con éxito.
+
+### Explicación de `munprotect`
+
+`munprotect` hace casi lo mismo que `mprotect`, pero en lugar de dejar el bit de escritura en 0, lo deja en 1, permitiendo que las páginas sean escribibles.
+
+## Dificultades Encontradas y Soluciones Implementadas
+
+- Se tuvo que investigar como XV6 manejaba la memoria y como se accedian a las PTE en el archivo vm.c.
+- No sabía como modificar la PTE: al aprender sobre el estandar sv39 se pudo encontrar  que se debía cambiar para actualizar los permisos
+- No se sabia si las modificaciones funcionaban: Se creo un programa de usuario `test` que prueba las funciones implementadas para validar que estas funcionen correctamente.
+
+
+
+Nota: no se explico la creación de las llamadas del sistema sino que en la lógica de estas ya que esto fue visto en otras tareas anteriores.
