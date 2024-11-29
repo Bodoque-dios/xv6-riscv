@@ -288,6 +288,7 @@ create(char *path, short type, short major, short minor)
     iupdate(dp);
   }
 
+  ip->permissions = 3; // read and write
   iunlockput(dp);
 
   return ip;
@@ -316,7 +317,7 @@ sys_open(void)
 
   begin_op();
 
-  if(omode & O_CREATE){
+  if(omode & O_CREATE){//create or open file
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0){
       end_op();
@@ -328,20 +329,20 @@ sys_open(void)
       return -1;
     }
     ilock(ip);
-    if(ip->type == T_DIR && omode != O_RDONLY){
+    if(ip->type == T_DIR && omode != O_RDONLY){ // if it is a directory and not read only
       iunlockput(ip);
       end_op();
       return -1;
     }
   }
 
-  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
+  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){ // if it is a device and major number is invalid
     iunlockput(ip);
     end_op();
     return -1;
   }
 
-  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){ // if file allocation fails or file descriptor allocation fails
     if(f)
       fileclose(f);
     iunlockput(ip);
@@ -349,12 +350,35 @@ sys_open(void)
     return -1;
   }
 
-  if(ip->type == T_DEVICE){
+  if(ip->type == T_DEVICE){ // if it is a device
     f->type = FD_DEVICE;
     f->major = ip->major;
   } else {
     f->type = FD_INODE;
     f->off = 0;
+    //parte 1
+    if(ip->permissions == 0){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    if(ip->permissions == 1 && (omode & (O_WRONLY | O_RDWR))){ // if file is read only and we are trying to write
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    if (ip->permissions == 2 && ((omode & (O_RDONLY | O_RDWR)))){ // if file is write only and we are trying to read
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+
+    // parte 2
+    if (ip->permissions == 5 && (omode & (O_RDWR | O_WRONLY))){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
   }
   f->ip = ip;
   f->readable = !(omode & O_WRONLY);
@@ -368,6 +392,36 @@ sys_open(void)
   end_op();
 
   return fd;
+}
+
+uint64
+sys_chmod(void)
+{
+  char path[MAXPATH];
+  int mode;
+  struct inode *ip;
+  
+  argstr(0, path, MAXPATH);
+  argint(1, &mode);
+  
+  begin_op();
+  if((ip = namei(path)) == 0){
+    end_op();
+    return -1;
+  }
+  ilock(ip);
+  //if inmutable return -1
+  if(ip->permissions== 5){
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+  
+  ip->permissions = mode;
+  iupdate(ip);
+  iunlockput(ip);
+  end_op();
+  return 0;
 }
 
 uint64
@@ -503,3 +557,4 @@ sys_pipe(void)
   }
   return 0;
 }
+

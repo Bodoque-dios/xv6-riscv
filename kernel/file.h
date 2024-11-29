@@ -26,6 +26,7 @@ struct inode {
   short minor;
   short nlink;
   uint size;
+  int permissions; //0 for nothing 1 for read, 2 for write, 3 for read and write, 5 for inmutable
   uint addrs[NDIRECT+1];
 };
 
